@@ -39,7 +39,7 @@ fun CtrlKeyScreen(onBack: () -> Unit) {
 
     ScreenScaffold(title = Screen.CtrlKey.title, onBack = onBack) {
         Text("Live keymap: ${keymapState.name}")
-        Text("Persisted (runs at boot): ${if (persisted) "Yes" else "No"}")
+        Text("Persisted: ${if (persisted) "Yes" else "No"}")
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Enabled")

@@ -90,26 +90,36 @@ private fun HomeMenu(onNavigate: (Screen) -> Unit) {
             true -> Text("Root access granted.", color = Color(0xFF81C784))
         }
 
-        MenuEntry(Screen.CtrlKey.title) { onNavigate(Screen.CtrlKey) }
-        MenuEntry(Screen.Zram.title) { onNavigate(Screen.Zram) }
-        MenuEntry(Screen.KbdLight.title) { onNavigate(Screen.KbdLight) }
-        MenuEntry(Screen.WirelessAdb.title) { onNavigate(Screen.WirelessAdb) }
-        MenuEntry(Screen.Dt2w.title) { onNavigate(Screen.Dt2w) }
-        MenuEntry(Screen.NavLock.title) { onNavigate(Screen.NavLock) }
-        MenuEntry(Screen.PinKeyboard.title) { onNavigate(Screen.PinKeyboard) }
-        MenuEntry(Screen.AudioFx.title) { onNavigate(Screen.AudioFx) }
+        MenuEntry(Screen.CtrlKey) { onNavigate(Screen.CtrlKey) }
+        MenuEntry(Screen.Zram) { onNavigate(Screen.Zram) }
+        MenuEntry(Screen.KbdLight) { onNavigate(Screen.KbdLight) }
+        MenuEntry(Screen.WirelessAdb) { onNavigate(Screen.WirelessAdb) }
+        MenuEntry(Screen.Dt2w) { onNavigate(Screen.Dt2w) }
+        MenuEntry(Screen.NavLock) { onNavigate(Screen.NavLock) }
+        MenuEntry(Screen.PinKeyboard) { onNavigate(Screen.PinKeyboard) }
+        MenuEntry(Screen.AudioFx) { onNavigate(Screen.AudioFx) }
     }
 }
 
 @Composable
-private fun MenuEntry(title: String, onClick: () -> Unit) {
+private fun MenuEntry(screen: Screen, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(screen.title, style = MaterialTheme.typography.titleMedium)
+            if (screen.subtitle.isNotEmpty()) {
+                Text(
+                    screen.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

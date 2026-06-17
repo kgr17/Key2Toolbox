@@ -38,7 +38,7 @@ fun KbdLightScreen(onBack: () -> Unit) {
     }
 
     ScreenScaffold(title = Screen.KbdLight.title, onBack = onBack) {
-        Text("Persisted (runs at boot): ${if (persisted) "Yes" else "No"}")
+        Text("Persisted: ${if (persisted) "Yes" else "No"}")
         Text("Currently running: ${if (running) "Yes" else "No"}")
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

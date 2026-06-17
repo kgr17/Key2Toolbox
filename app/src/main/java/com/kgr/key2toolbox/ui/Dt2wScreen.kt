@@ -43,7 +43,7 @@ fun Dt2wScreen(onBack: () -> Unit) {
             style = MaterialTheme.typography.bodySmall
         )
         Text("Live state: ${state.name}")
-        Text("Persisted (runs at boot): ${if (persisted) "Yes" else "No"}")
+        Text("Persisted: ${if (persisted) "Yes" else "No"}")
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Enabled")

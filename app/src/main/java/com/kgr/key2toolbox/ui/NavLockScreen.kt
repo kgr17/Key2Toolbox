@@ -111,7 +111,7 @@ fun NavLockScreen(onBack: () -> Unit) {
             )
         }
         Text(
-            "Persisted (runs at boot): " + when (alwaysOffPersisted) {
+            "Persisted: " + when (alwaysOffPersisted) {
                 null -> "checking…"
                 true -> "Yes"
                 false -> "No"

@@ -46,7 +46,7 @@ fun WirelessAdbScreen(onBack: () -> Unit) {
     ScreenScaffold(title = Screen.WirelessAdb.title, onBack = onBack) {
         Text("WLAN IP: ${wlanIp ?: "not connected"}")
         Text("Current live port: ${livePort ?: "not set"}")
-        Text("Persisted (runs at boot): ${if (persisted) "Yes" else "No"}")
+        Text("Persisted: ${if (persisted) "Yes" else "No"}")
 
         OutlinedTextField(
             value = portText,
