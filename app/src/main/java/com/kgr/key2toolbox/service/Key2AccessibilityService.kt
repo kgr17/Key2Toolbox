@@ -9,6 +9,7 @@ import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import com.kgr.key2toolbox.core.AssetInstaller
 import com.kgr.key2toolbox.core.RootShell
 import java.util.Locale
 import java.util.concurrent.ExecutorService
@@ -33,6 +34,11 @@ import java.util.concurrent.Executors
  * Each feature has an independent toggle stored in SharedPreferences ("key2tweaks").
  * Root writes go through RootShell (libsu) rather than a raw su process, to share
  * one root-execution path with the rest of the app.
+ *
+ * "Disable ALWAYS" additionally installs a /data/adb/service.d/ boot script
+ * (nav_always_off.sh), since the sysfs node resets to its driver default
+ * (enabled) on every reboot and this mode shouldn't depend on the
+ * accessibility service starting up before the buttons get disabled.
  */
 class Key2AccessibilityService : AccessibilityService() {
 
@@ -45,6 +51,9 @@ class Key2AccessibilityService : AccessibilityService() {
 
         private const val LONG_PRESS_MS = 350L
         private const val DOUBLE_TAP_MS = 300L
+
+        private const val ALWAYS_OFF_SCRIPT = "nav_always_off.sh"
+        private const val ALWAYS_OFF_TARGET = "/data/adb/service.d/$ALWAYS_OFF_SCRIPT"
     }
 
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
@@ -54,15 +63,32 @@ class Key2AccessibilityService : AccessibilityService() {
     private var prefs: SharedPreferences? = null
     private var audioFx: AudioFx? = null
 
-    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
         if (key == null) return@OnSharedPreferenceChangeListener
         if (key == KEY_NAV_LOCK || key == KEY_NAV_GESTURE || key == KEY_NAV_ALWAYS_OFF) {
             reconcileNav()
+        }
+        if (key == KEY_NAV_ALWAYS_OFF) {
+            val alwaysOffNow = sp.getBoolean(KEY_NAV_ALWAYS_OFF, false)
+            worker.execute { persistAlwaysOff(alwaysOffNow) }
         }
         val fx = audioFx
         if (fx != null && (key == AudioFx.KEY_ENABLED || key.startsWith("eq_") ||
                     key.startsWith("bass_") || key.startsWith("loud_"))) {
             fx.refresh()
+        }
+    }
+
+    /** Installs or removes the boot script that disables nav buttons at startup. */
+    private fun persistAlwaysOff(enabled: Boolean) {
+        try {
+            if (enabled) {
+                AssetInstaller.installFromAsset(this, ALWAYS_OFF_SCRIPT, ALWAYS_OFF_TARGET)
+            } else {
+                AssetInstaller.removeFile(ALWAYS_OFF_TARGET)
+            }
+        } catch (_: Exception) {
+            // Persistence failed; live toggle still works for this session.
         }
     }
 
@@ -87,6 +113,10 @@ class Key2AccessibilityService : AccessibilityService() {
         worker.execute {
             navDisabled = readNavDisabledFromKernel() ?: false
             reconcileNav()
+            // Make sure the boot script matches the current pref, in case
+            // it was enabled before this persistence logic existed, or the
+            // install/removal previously failed silently.
+            persistAlwaysOff(alwaysOff())
         }
 
         val fx = AudioFx(this, p)

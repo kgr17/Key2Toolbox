@@ -11,16 +11,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.kgr.key2toolbox.core.AssetInstaller
 import com.kgr.key2toolbox.service.Key2AccessibilityService
 import com.kgr.key2toolbox.service.isKey2AccessibilityServiceEnabled
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private const val ALWAYS_OFF_TARGET = "/data/adb/service.d/nav_always_off.sh"
 
 @Composable
 fun NavLockScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val prefs = remember {
         context.getSharedPreferences(Key2AccessibilityService.PREFS, Context.MODE_PRIVATE)
     }
@@ -29,9 +37,13 @@ fun NavLockScreen(onBack: () -> Unit) {
     var navLock by remember { mutableStateOf(prefs.getBoolean(Key2AccessibilityService.KEY_NAV_LOCK, true)) }
     var gestureMode by remember { mutableStateOf(prefs.getBoolean(Key2AccessibilityService.KEY_NAV_GESTURE, false)) }
     var alwaysOff by remember { mutableStateOf(prefs.getBoolean(Key2AccessibilityService.KEY_NAV_ALWAYS_OFF, false)) }
+    var alwaysOffPersisted by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) {
         serviceEnabled = isKey2AccessibilityServiceEnabled(context)
+        withContext(Dispatchers.IO) {
+            alwaysOffPersisted = AssetInstaller.fileExists(ALWAYS_OFF_TARGET)
+        }
     }
 
     ScreenScaffold(title = Screen.NavLock.title, onBack = onBack) {
@@ -87,8 +99,24 @@ fun NavLockScreen(onBack: () -> Unit) {
                 onCheckedChange = { checked ->
                     alwaysOff = checked
                     prefs.edit().putBoolean(Key2AccessibilityService.KEY_NAV_ALWAYS_OFF, checked).apply()
+                    // The accessibility service installs/removes the boot
+                    // script asynchronously in response to this pref change;
+                    // give it a moment, then refresh the displayed status.
+                    scope.launch(Dispatchers.IO) {
+                        kotlinx.coroutines.delay(800)
+                        val persisted = AssetInstaller.fileExists(ALWAYS_OFF_TARGET)
+                        withContext(Dispatchers.Main) { alwaysOffPersisted = persisted }
+                    }
                 }
             )
         }
+        Text(
+            "Persisted (runs at boot): " + when (alwaysOffPersisted) {
+                null -> "checking…"
+                true -> "Yes"
+                false -> "No"
+            },
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
