@@ -12,7 +12,7 @@ android {
         minSdk = 28
         targetSdk = 35
         versionCode = 1
-        versionName = "4.1-beta1"
+        versionName = "4.1-beta2"
     }
 
     // To produce a release build signed with your existing keystore, fill these
