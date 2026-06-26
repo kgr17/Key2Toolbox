@@ -172,6 +172,7 @@ private fun ReadyContent(
             label = { Text("Remove tag") }
         )
     }
+
     // Search field
     OutlinedTextField(
         value = state.query,
@@ -238,9 +239,6 @@ private fun ReadyContent(
         return
     }
 
-    // App list — note: ScreenScaffold already wraps in a scrollable Column,
-    // so we use a fixed-height LazyColumn to avoid nested scroll conflicts.
-    // 72dp per row × up to ~10 visible rows = 720dp, then it scrolls.
     val listHeight = minOf(state.apps.size * 72, 600).dp
     val listState = rememberLazyListState()
 
@@ -270,7 +268,6 @@ private fun AppRow(app: AppInfo, onToggle: () -> Unit) {
         ) {
             Checkbox(checked = app.isSelected, onCheckedChange = { onToggle() })
 
-            // App icon — convert Drawable → Bitmap → ImageBitmap (no new dependency needed)
             val bitmap: ImageBitmap = remember(app.packageName) {
                 app.icon.toBitmap(width = 96, height = 96).asImageBitmap()
             }
@@ -316,7 +313,7 @@ private fun LogPanel(log: String) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
+                .height(400.dp)
                 .padding(10.dp)
                 .verticalScroll(rememberScrollState())
         ) {
