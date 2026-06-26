@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class FilterMode { ALL, NON_PLAY }
+enum class TagMode { TAG, UNTAG }
 
 sealed class TaggerUiState {
     object Loading : TaggerUiState()
@@ -23,13 +24,15 @@ sealed class TaggerUiState {
         val apps: List<AppInfo>,
         val filter: FilterMode,
         val query: String,
-        val showSystem: Boolean
+        val showSystem: Boolean,
+        val tagMode: TagMode
     ) : TaggerUiState()
     data class Tagging(
         val progress: Int,
         val total: Int,
         val currentApp: String,
-        val log: String
+        val log: String,
+        val tagMode: TagMode
     ) : TaggerUiState()
     data class Done(
         val results: Map<String, String?>,
@@ -37,7 +40,8 @@ sealed class TaggerUiState {
         val filter: FilterMode,
         val query: String,
         val showSystem: Boolean,
-        val log: String
+        val log: String,
+        val tagMode: TagMode
     ) : TaggerUiState()
     data class Error(val message: String) : TaggerUiState()
 }
@@ -51,6 +55,7 @@ class PlayStoreTaggerViewModel : ViewModel() {
     private var currentFilter = FilterMode.NON_PLAY
     private var currentQuery = ""
     private var showSystem = false
+    private var currentTagMode = TagMode.TAG
     private val logBuilder = StringBuilder()
 
     fun load(context: Context) {
@@ -63,7 +68,7 @@ class PlayStoreTaggerViewModel : ViewModel() {
                 }
                 try {
                     allApps = loadApps(context)
-                    _uiState.value = TaggerUiState.Ready(filteredApps(), currentFilter, currentQuery, showSystem)
+                    _uiState.value = TaggerUiState.Ready(filteredApps(), currentFilter, currentQuery, showSystem, currentTagMode)
                 } catch (e: Exception) {
                     _uiState.value = TaggerUiState.Error(e.message ?: "Failed to load apps")
                 }
@@ -75,6 +80,13 @@ class PlayStoreTaggerViewModel : ViewModel() {
     fun setQuery(q: String) { currentQuery = q.trim(); updateReady() }
     fun setShowSystem(value: Boolean) { showSystem = value; updateReady() }
     fun getShowSystem() = showSystem
+    fun setTagMode(mode: TagMode) {
+        currentTagMode = mode
+        // When switching to untag, default to ALL so Play-tagged apps are visible.
+        // When switching to tag, default back to NON_PLAY.
+        currentFilter = if (mode == TagMode.UNTAG) FilterMode.ALL else FilterMode.NON_PLAY
+        clearSelection()
+    }
 
     fun toggleSelection(packageName: String) {
         allApps = allApps.map {
@@ -102,6 +114,7 @@ class PlayStoreTaggerViewModel : ViewModel() {
         val selected = allApps.filter { it.isSelected }
         if (selected.isEmpty()) return
         logBuilder.clear()
+        val mode = currentTagMode
 
         viewModelScope.launch {
             val results = mutableMapOf<String, String?>()
@@ -115,19 +128,35 @@ class PlayStoreTaggerViewModel : ViewModel() {
                             progress = index + 1,
                             total = selected.size,
                             currentApp = app.label,
-                            log = logBuilder.toString()
+                            log = logBuilder.toString(),
+                            tagMode = mode
                         )
                     }
 
-                    val error = PlayStoreTaggerManager.setPlayInstaller(app.packageName) { line ->
-                        appendLog("    $line")
-                        viewModelScope.launch(Dispatchers.Main) {
-                            _uiState.value = TaggerUiState.Tagging(
-                                progress = index + 1,
-                                total = selected.size,
-                                currentApp = app.label,
-                                log = logBuilder.toString()
-                            )
+                    val error = when (mode) {
+                        TagMode.TAG -> PlayStoreTaggerManager.setPlayInstaller(app.packageName) { line ->
+                            appendLog("    $line")
+                            viewModelScope.launch(Dispatchers.Main) {
+                                _uiState.value = TaggerUiState.Tagging(
+                                    progress = index + 1,
+                                    total = selected.size,
+                                    currentApp = app.label,
+                                    log = logBuilder.toString(),
+                                    tagMode = mode
+                                )
+                            }
+                        }
+                        TagMode.UNTAG -> PlayStoreTaggerManager.clearInstaller(app.packageName) { line ->
+                            appendLog("    $line")
+                            viewModelScope.launch(Dispatchers.Main) {
+                                _uiState.value = TaggerUiState.Tagging(
+                                    progress = index + 1,
+                                    total = selected.size,
+                                    currentApp = app.label,
+                                    log = logBuilder.toString(),
+                                    tagMode = mode
+                                )
+                            }
                         }
                     }
 
@@ -151,7 +180,8 @@ class PlayStoreTaggerViewModel : ViewModel() {
                 filter = currentFilter,
                 query = currentQuery,
                 showSystem = showSystem,
-                log = logBuilder.toString()
+                log = logBuilder.toString(),
+                tagMode = mode
             )
         }
     }
@@ -163,7 +193,7 @@ class PlayStoreTaggerViewModel : ViewModel() {
     private fun updateReady() {
         val current = _uiState.value
         if (current is TaggerUiState.Ready || current is TaggerUiState.Done) {
-            _uiState.value = TaggerUiState.Ready(filteredApps(), currentFilter, currentQuery, showSystem)
+            _uiState.value = TaggerUiState.Ready(filteredApps(), currentFilter, currentQuery, showSystem, currentTagMode)
         }
     }
 

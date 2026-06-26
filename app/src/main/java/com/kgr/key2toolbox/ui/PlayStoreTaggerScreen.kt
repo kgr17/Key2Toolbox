@@ -49,6 +49,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kgr.key2toolbox.modules.AppInfo
 import com.kgr.key2toolbox.modules.FilterMode
 import com.kgr.key2toolbox.modules.PlayStoreTaggerViewModel
+import com.kgr.key2toolbox.modules.TagMode
 import com.kgr.key2toolbox.modules.TaggerUiState
 
 @Composable
@@ -90,8 +91,9 @@ fun PlayStoreTaggerScreen(onBack: () -> Unit) {
             is TaggerUiState.Done -> {
                 val success = s.results.values.count { it == null }
                 val fail = s.results.size - success
+                val verb = if (s.tagMode == TagMode.TAG) "tagged" else "untagged"
                 Text(
-                    "Done — $success succeeded${if (fail > 0) ", $fail failed" else ""}",
+                    "Done — $success $verb${if (fail > 0) ", $fail failed" else ""}",
                     color = if (fail == 0) Color(0xFF81C784) else Color(0xFFE57373)
                 )
                 LogPanel(log = s.log)
@@ -102,6 +104,7 @@ fun PlayStoreTaggerScreen(onBack: () -> Unit) {
                 ReadyContent(
                     state = s,
                     selectedCount = vm.selectedCount(),
+                    onTagModeChange = { vm.setTagMode(it) },
                     onFilterChange = { vm.setFilter(it) },
                     onQueryChange = { vm.setQuery(it) },
                     onToggleSystem = { vm.setShowSystem(!s.showSystem) },
@@ -118,17 +121,19 @@ fun PlayStoreTaggerScreen(onBack: () -> Unit) {
     // Confirmation dialog
     if (showConfirm) {
         val count = vm.selectedCount()
+        val s = state
+        val mode = if (s is TaggerUiState.Ready) s.tagMode else TagMode.TAG
+        val verb = if (mode == TagMode.TAG) "Tag" else "Untag"
+        val desc = if (mode == TagMode.TAG)
+            "Set installer to com.android.vending for $count selected app${if (count != 1) "s" else ""}?"
+        else
+            "Clear installer tag for $count selected app${if (count != 1) "s" else ""}? They will show as sideloaded."
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showConfirm = false },
-            title = { Text("Tag $count app${if (count != 1) "s" else ""}") },
-            text = {
-                Text(
-                    "Set installer to com.android.vending for $count selected " +
-                        "app${if (count != 1) "s" else ""}?"
-                )
-            },
+            title = { Text("$verb $count app${if (count != 1) "s" else ""}") },
+            text = { Text(desc) },
             confirmButton = {
-                Button(onClick = { showConfirm = false; vm.tagSelected() }) { Text("Tag") }
+                Button(onClick = { showConfirm = false; vm.tagSelected() }) { Text(verb) }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
@@ -141,6 +146,7 @@ fun PlayStoreTaggerScreen(onBack: () -> Unit) {
 private fun ReadyContent(
     state: TaggerUiState.Ready,
     selectedCount: Int,
+    onTagModeChange: (TagMode) -> Unit,
     onFilterChange: (FilterMode) -> Unit,
     onQueryChange: (String) -> Unit,
     onToggleSystem: () -> Unit,
@@ -150,6 +156,22 @@ private fun ReadyContent(
     onTagClick: () -> Unit,
     onRefresh: () -> Unit
 ) {
+    // Tag / Untag mode
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilterChip(
+            selected = state.tagMode == TagMode.TAG,
+            onClick = { onTagModeChange(TagMode.TAG) },
+            label = { Text("Tag as Play Store") }
+        )
+        FilterChip(
+            selected = state.tagMode == TagMode.UNTAG,
+            onClick = { onTagModeChange(TagMode.UNTAG) },
+            label = { Text("Remove tag") }
+        )
+    }
     // Search field
     OutlinedTextField(
         value = state.query,
@@ -198,8 +220,10 @@ private fun ReadyContent(
 
     // Tag button — only shown when something is selected
     if (selectedCount > 0) {
+        val verb = if (state.tagMode == TagMode.TAG) "Tag" else "Untag"
         Button(onClick = onTagClick, modifier = Modifier.fillMaxWidth()) {
-            Text("Tag $selectedCount app${if (selectedCount != 1) "s" else ""} as Play Store")
+            Text("$verb $selectedCount app${if (selectedCount != 1) "s" else ""}" +
+                if (state.tagMode == TagMode.TAG) " as Play Store" else " (clear installer)")
         }
     }
 
